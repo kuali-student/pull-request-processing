@@ -20,6 +20,15 @@
 	<description>In order to run maven plugins we need a project with a pom file.  This project serves that need providing a small pom configured to use the Git Workflow Maven Plugin for building the kuali student ks-development repository.</description>
 	<properties>
 		<git-workflow.version>0.0.4-SNAPSHOT</git-workflow.version>
+		
+		<!-- intended to be set on the maven command line when the fetching the open pull requests -->
+		<fetchOpenPullRequests.phase>none</fetchOpenPullRequests.phase>
+		
+		<!-- Set to > 0 to select a specific pull request -->
+		<fetchOpenPullRequests.target-pull-request-number>-1</fetchOpenPullRequests.target-pull-request-number>
+		
+		<!-- pass through the expected pull request head. fail if this is not the current pull request branch head. -->
+		<fetchOpenPullRequests.target-commit-id>commitId</fetchOpenPullRequests.target-commit-id>
 	</properties>
 	
 	
@@ -50,16 +59,18 @@
 				<executions>
 					<execution>
 			            <id>list</id>
-			            <phase>package</phase>
+			            <phase>${fetchOpenPullRequests.phase}</phase>
 			            <goals>
-			              <goal>listOpenPullRequests</goal>
+			              <goal>fetchOpenPullRequests</goal>
 			            </goals>
 			            <inherited>false</inherited>
 			            <configuration>
 			            	<sourceGithubUser>kuali-student</sourceGithubUser>
 			            	<sourceGithubRepo>ks-development</sourceGithubRepo>
 			            	<sourceGithubBranch>development</sourceGithubBranch>
-			            	<reportFileNamePrefix>target/ks-development-open-pull-requests</reportFileNamePrefix>
+			            	<repositoryRelativePath>target/ks-repo</repositoryRelativePath>
+			            	<specificPullRequest>${target-pull-request-number}</specificPullRequest>
+			            	<expectedPullRequestHeadCommitId>${fetchOpenPullRequests.target-commit-id}</expectedPullRequestHeadCommitId>
 			            </configuration>
 			        </execution>
 				</executions>
