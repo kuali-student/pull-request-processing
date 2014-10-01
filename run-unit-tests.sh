@@ -9,6 +9,7 @@
 # PULL_REQUEST_COMMIT_ID
 # MODULE <-- optional, if present we only run the unit tests for this module.
 #
+
 runModuleTest () {
 
 	M=$1
@@ -21,8 +22,8 @@ runModuleTest () {
 	echo "cd $M"
 	cd $M
 
-	mvn clean install -Dks.gwt.compile.phase=none -Dks.build.angular.phase=none
-
+	mvn clean install -Dks.gwt.compile.phase=none -Dks.build.angular.phase=none -Dmaven.test.failure.ignore=true
+	
 }
 
 runAllTest () {
@@ -30,7 +31,7 @@ runAllTest () {
 	PR=$1
 	echo "Running all unit tests for pull request $PR"
 	# no module is specified so just run the build at the top level
-	mvn clean install -Dks.gwt.compile.phase=none -Dks.build.angular.phase=none
+	mvn clean install -Dks.gwt.compile.phase=none -Dks.build.angular.phase=none -Dmaven.test.failure.ignore=true
 }
 
 mvn clean
