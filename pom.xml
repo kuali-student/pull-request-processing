@@ -19,7 +19,7 @@
 	<inceptionYear>2014</inceptionYear>
 	<description>In order to run maven plugins we need a project with a pom file.  This project serves that need providing a small pom configured to use the Git Workflow Maven Plugin for building the kuali student ks-development repository.</description>
 	<properties>
-		<git-workflow.version>0.0.4-SNAPSHOT</git-workflow.version>
+		<git-workflow.version>0.0.5</git-workflow.version>
 		
 		<!-- intended to be set on the maven command line when the fetching the open pull requests -->
 		<fetchOpenPullRequests.phase>none</fetchOpenPullRequests.phase>
@@ -29,6 +29,13 @@
 		
 		<!-- pass through the expected pull request head. fail if this is not the current pull request branch head. -->
 		<fetchOpenPullRequests.target-commit-id>commitId</fetchOpenPullRequests.target-commit-id>
+		
+		<!-- intended to be set on the maven command line when the fetching the open pull requests -->
+		<identifyChangesInApi>none</identifyChangesInApi>
+		
+		<!-- Set to > 0 to select a specific pull request -->
+		<identifyChangesInApi.target-pull-request-number>-1</identifyChangesInApi.target-pull-request-number>
+		
 	</properties>
 	
 	
@@ -69,8 +76,25 @@
 			            	<sourceGithubRepo>ks-development</sourceGithubRepo>
 			            	<sourceGithubBranch>development</sourceGithubBranch>
 			            	<repositoryRelativePath>target/ks-repo</repositoryRelativePath>
-			            	<specificPullRequest>${target-pull-request-number}</specificPullRequest>
+			            	<specificPullRequest>${fetchOpenPullRequests.target-pull-request-number}</specificPullRequest>
 			            	<expectedPullRequestHeadCommitId>${fetchOpenPullRequests.target-commit-id}</expectedPullRequestHeadCommitId>
+			            </configuration>
+			        </execution>
+			        <execution>
+			            <id>show-changes</id>
+			            <phase>${identifyChangesInApi.phase}</phase>
+			            <goals>
+			              <goal>identifyChangesInApi</goal>
+			            </goals>
+			            <inherited>false</inherited>
+			            <configuration>
+			            	<sourceGithubUser>kuali-student</sourceGithubUser>
+			            	<sourceGithubRepo>ks-development</sourceGithubRepo>
+			            	<sourceGithubBranch>development</sourceGithubBranch>
+			            	<specificPullRequest>${identifyChangesInApi.target-pull-request-number}</specificPullRequest>
+			            	<environmentVariablesToInclude>
+			            		<variable>PULL_REQUEST_COMMIT_ID</variable>
+			            	</environmentVariablesToInclude>
 			            </configuration>
 			        </execution>
 				</executions>
