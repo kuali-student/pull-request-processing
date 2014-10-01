@@ -9,6 +9,29 @@
 # PULL_REQUEST_COMMIT_ID
 # MODULE <-- optional, if present we only run the unit tests for this module.
 #
+runModuleTest () {
+
+	M=$1
+
+	# a module is specified so we need to first build the test code for everything
+	echo "Running unit tests for module = $M"
+	mvn clean install -DskipTests
+
+	# run unit tests on the identified module only
+	echo "cd $M"
+	cd $M
+
+	mvn clean install -Dks.gwt.compile.phase=none -Dks.build.angular.phase=none
+
+}
+
+runAllTest () {
+
+	PR=$1
+	echo "Running all unit tests for pull request $PR"
+	# no module is specified so just run the build at the top level
+	mvn clean install -Dks.gwt.compile.phase=none -Dks.build.angular.phase=none
+}
 
 mvn clean
 
@@ -23,22 +46,17 @@ cd target/ks-repo
 echo "Checkout pull-request-${PULL_REQUEST_NUMBER} branch"
 git checkout pull-request-${PULL_REQUEST_NUMBER}
 
-if test "$MODULE" != "all
+if test -z "$MODULE" 
 then
-	# a module is specified so we need to first build the test code for everything
-	echo "Running unit tests for module = $MODULE"
-	mvn clean install -DskipTests
+	runAllTest $PULL_REQUEST_NUMBER
+else 
 
-	# run unit tests on the identified module only
-	echo "cd $MODULE"
-	cd $MODULE
-
-	mvn clean install -Dks.gwt.compile.phase=none -Dks.build.angular.phase=none
-
-else
-	echo "Running all unit tests for pull request $PULL_REQUEST_NUMBER"
-	# no module is specified so just run the build at the top level
-	mvn clean install -Dks.gwt.compile.phase=none -Dks.build.angular.phase=none
-fi
+	if  test "$MODULE" != "all"
+	then
+		runModuleTest $MODULE
+	else
+		runAllTest $PULL_REQUEST_NUMBER
+	fi
+fi	
 
 # EOF
