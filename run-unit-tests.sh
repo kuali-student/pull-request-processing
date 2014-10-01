@@ -23,7 +23,7 @@ cd target/ks-repo
 echo "Checkout pull-request-${PULL_REQUEST_NUMBER} branch"
 git checkout pull-request-${PULL_REQUEST_NUMBER}
 
-if test -n "$MODULE"
+if test "$MODULE" != "all
 then
 	# a module is specified so we need to first build the test code for everything
 	echo "Running unit tests for module = $MODULE"
