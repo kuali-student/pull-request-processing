@@ -2,51 +2,92 @@
 #
 # run-builder.sh
 #
-# run the build of a specific pull request on a specific module
+# Determine if we should be running the manual impex process.
 #
 # Expected Jenkins Build Parameter Names:
 # PULL_REQUEST_NUMBER
 # PULL_REQUEST_COMMIT_ID
-# MODULE
 #
+DEBUG_DB_OPTS=-Doracle.dba.password=X12p42Rs
+
 REPO_BASE=https://github.com/kuali-student
 
 KS_REPO=$REPO_BASE/ks-development
 KS_IMPEX_REPO=$REPO_BASE/ks-development-impex
 
-mvn clean
+PR_BRANCH="pull-request-${PULL_REQUEST_NUMBER}"
 
-mkdir -p target
+if test -f target/sql-changes.dat
+then
+	# change detector says there are sql changes on this pull request
+	
+	# run the manual impex process.
+	
+	# first checkout the ks-repo
+	mvn clean
 
-echo "Fetching pull request $PULL_REQUEST_NUMBER head at $PULL_REQUEST_COMMIT_ID"
-mvn initialize -DfetchOpenPullRequests.target-pull-request-number=$PULL_REQUEST_NUMBER -DfetchOpenPullRequests.target-commit-id=$PULL_REQUEST_COMMIT_ID -DfetchOpenPullRequests.phase=initialize
+	mkdir -p target
 
-cd target/ks-repo
+	echo "Fetching pull request $PULL_REQUEST_NUMBER head at $PULL_REQUEST_COMMIT_ID"
+	mvn initialize -DfetchOpenPullRequests.target-pull-request-number=$PULL_REQUEST_NUMBER -DfetchOpenPullRequests.target-commit-id=$PULL_REQUEST_COMMIT_ID -DfetchOpenPullRequests.phase=initialize	
+	
+	cd target/ks-repo
 
-# runs in the subshell to keep the current directory at the top level.
-echo "Checkout pull-request-${PULL_REQUEST_NUMBER} branch"
-git checkout pull-request-${PULL_REQUEST_NUMBER}
+	echo "Checkout $PR_BRANCH branch"
+	git checkout $PR_BRANCH	
+	
+	# set the pom versions
+	## This will use the Fusion Tag Mojo
+	mvn initialize -Dfusion.tag.phase=initialize -Dfusion.tag.pull-request-number-property=PULL_REQUEST_NUMBER -N
+	
+	# ideally this would work but if not then do a full build
+	# once development is building properly try switching this back.
+	# mvn clean install -Psql-only,impex-only
+	
+	mvn clean install -DskipTests -Pskip-all-wars
+	
+	# move back up to the target directory
+	cd ..
+	
+	# next checkout the ks-impex-repo
 
-# check that the build works
-mvn clean install -DskipTests
+	git clone --depth=1 $KS_IMPEX_REPO ./ks-impex-repo	
 
-# run unit tests on the identified module only
-echo "cd $MODULE"
-cd $MODULE
+	cd ks-impex-repo
+	
+	# if the pull request branch exists use it otherwise create it.
+	$(git branch -r | grep $PR_BRANCH)
+	R=$?
+	
+	if test 0 -eq $R
+	then
+		# branch exists remotely
+		git checkout -b $PR_BRANCH origin/$PR_BRANCH
+	else
+		# branch does not exist remotely
+		git checkout -b $PR_BRANCH
+	fi
+	
+	# setup the pom versions.
+	mvn initialize -Ppull-request -Dfusion.tag.phase=initialize -Dfusion.tag.pull-request-number-property=PULL_REQUEST_NUMBER -Dfusion.tag.pull-request-number=$PULL_REQUEST_NUMBER -N -e
+	
+	# this only works on my local
+	mvn initialize -Plocal,source-db $DEBUG_DB_OPTS -N -e 
+	mvn generate-resources -Pdump,local $DEBUG_DB_OPTS -N -e
+	mvn process-resources -Pimpexscm -N
+	
+	git add .
+	
+	git commit -a -m'Commit Impex Changes for pull-request-$PULL_REQUEST_NUMBER'
+	
+	echo "IMPEX_BRANCH=$PR_BRANCH" > pull-request-branch.dat
+	
+	# we want to push $PR_BRANCH to the upstream.
+	
 
-mvn clean install -Dks.gwt.compile.phase=none -Dks.build.angular.phase=none
+else
+	echo "No SQL Changes Detected so Skipping Manual Impex Process"
+fi
 
-#$(cd target && git clone --depth=1 $KS_IMPEX_REPO ./ks-impex-repo)
-
-# at this point we know if impex is needed
-#if test -f target/ks-impex-changes.dat 
-#then
-#	# need to recreate impex
-#	$(cd target/ks-impex-repo && git checkout -b pull-request-${PULL_REQUEST_NUMBER})
-#	
-#	
-#fi
-
-# at this point we know which modules to trigger for unit tests
 
 # EOF
