@@ -19,8 +19,8 @@
 	<inceptionYear>2014</inceptionYear>
 	<description>In order to run maven plugins we need a project with a pom file.  This project serves that need providing a small pom configured to use the Git Workflow Maven Plugin for building the kuali student ks-development repository.</description>
 	<properties>
-		<git-workflow.version>0.0.7</git-workflow.version>
-		<fusion.version>0.0.2-SNAPSHOT</fusion.version>
+		<git-workflow.version>0.0.8-SNPASHOT</git-workflow.version>
+		<fusion.version>0.0.4-SNAPSHOT</fusion.version>
 		
 		<!-- Start Fetch Open Pull Requests Section -->
 		
@@ -61,6 +61,13 @@
 		
 		<!-- End Tag Section -->
 		
+		<!-- Start Push DB Changes Section -->
+		<push-db-changes.phase>none</push-db-changes.phase>
+		
+		<!-- Required when pushing db changes to be set to the name of the pull-request branch. -->
+		<push-db-changes.pull-request-branch-name/>
+		
+		<!-- End Push DB Changes Section -->
 	</properties>
 	
 	
@@ -120,6 +127,24 @@
 			            	<environmentVariablesToInclude>
 			            		<variable>PULL_REQUEST_COMMIT_ID</variable>
 			            	</environmentVariablesToInclude>
+			            </configuration>
+			        </execution>
+			        
+			         <execution>
+			         	<!-- Designed for pushing the pull-request branch into the upstream -->
+			            <id>push-db-changes</id>
+			            <phase>${push-db-changes.phase}</phase>
+			            <goals>
+			              <goal>pushRef</goal>
+			            </goals>
+			            <inherited>false</inherited>
+			            <configuration>
+			            	<repositoryRelativePath>target/ks-impex-repo</repositoryRelativePath>
+			            	<localRef>${push-db-changes.pull-request-branch-name}</localRef>
+							<remoteName>origin</remoteName>
+							<remoteCredentialTemplate>https://%s:%s@github.com</remoteCredentialTemplate>	
+							<userNameEnvVarName>GITHUB_AUTH_USERNAME</userNameEnvVarName>
+							<passwordEnvVarName>GITHUB_AUTH_PASSWORD</passwordEnvVarName>
 			            </configuration>
 			        </execution>
 				</executions>
