@@ -65,6 +65,6 @@ cd ../..
 
 set +e
 # update the ks-impex-repo $PR_BRANCH into github.
-mvn process-resources -Dpush-db-changes.phase=process-resources  -Dpush-db-changes.pull-request-branch-name=$PR_BRANCH
+mvn validate -Dpush-db-changes.phase=validate  -Dpush-db-changes.pull-request-branch-name=$PR_BRANCH
 
 # EOF

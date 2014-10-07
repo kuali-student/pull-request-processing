@@ -71,7 +71,7 @@ else
 	# setup the pom versions.
 	
 	set +e
-	mvn process-resources -Ppull-request -Dfusion.tag.phase=process-resources -Dfusion.tag.pull-request-number-property=PULL_REQUEST_NUMBER -Dfusion.tag.pull-request-number=$PULL_REQUEST_NUMBER -N -e
+	mvn validate -Ppull-request -Dfusion.tag.phase=validate -Dfusion.tag.pull-request-number-property=PULL_REQUEST_NUMBER -Dfusion.tag.pull-request-number=$PULL_REQUEST_NUMBER -N -e
 	
 fi
 
