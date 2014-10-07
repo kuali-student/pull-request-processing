@@ -10,60 +10,16 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>org.kuali.student</groupId>
+	<parent>
+		<groupId>org.kuali.student</groupId>
+		<artifactId>pull-request-processing</artifactId>
+		<version>0.0.1-SNAPSHOT</version>
+	</parent>
 	<artifactId>pull-request-gatekeeper</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
 	<packaging>jar</packaging>
 	<url>http://${kuali.site.hostname}/maven/plugins/${project.artifactId}/${project.version}</url>
 	<name>Pull Request Gate Keeper</name>
 	<inceptionYear>2014</inceptionYear>
 	<description>In order to run maven plugins we need a project with a pom file.  This project serves that need providing a small pom configured to use the Git Workflow Maven Plugin.</description>
-	<properties>
-		<git-workflow.version>0.0.6</git-workflow.version>
-	</properties>
 	
-	
-	<scm>
-		<url>https://github.com/kuali-student/pull-request-gatekeeper</url>
-		<connection>scm:git:git@github.com:kuali-student/pull-request-gatekeeper.git</connection>
-    	<developerConnection>scm:git:git@github.com:kuali-student/pull-request-gatekeeper.git</developerConnection>
-		<tag>master</tag>
-	</scm>
-	<developers>
-		<developer>
-			<id>jcaddel</id>
-			<name>Jeff Caddel</name>
-			<email>jcaddel@kuali.org</email>
-		</developer>
-		<developer>
-			<id>michael.ocleirigh</id>
-			<name>Michael O'Cleirigh</name>
-			<email>michael.ocleirigh@kuali.org</email>
-		</developer>
-	</developers>
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.kuali.maven.plugins</groupId>
-				<artifactId>git-workflow-maven-plugin</artifactId>
-				<version>${git-workflow.version}</version>
-				<executions>
-					<execution>
-			            <id>list</id>
-			            <phase>package</phase>
-			            <goals>
-			              <goal>listOpenPullRequests</goal>
-			            </goals>
-			            <inherited>false</inherited>
-			            <configuration>
-			            	<sourceGithubUser>kuali-student</sourceGithubUser>
-			            	<sourceGithubRepo>ks-development</sourceGithubRepo>
-			            	<sourceGithubBranch>development</sourceGithubBranch>
-			            	<reportFileNamePrefix>target/ks-development-open-pull-requests</reportFileNamePrefix>
-			            </configuration>
-			        </execution>
-				</executions>
-			</plugin>
-		</plugins>
-	</build>
 </project>

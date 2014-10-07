@@ -10,18 +10,22 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<parent>
-		<groupId>org.kuali.student</groupId>
-		<artifactId>pull-request-processing</artifactId>
-		<version>0.0.1-SNAPSHOT</version>
-	</parent>
-	<artifactId>pull-request-builder</artifactId>
-	<packaging>jar</packaging>
+	<groupId>org.kuali.student</groupId>
+	<artifactId>pull-request-processing</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<packaging>pom</packaging>
 	<url>http://${kuali.site.hostname}/maven/plugins/${project.artifactId}/${project.version}</url>
-	<name>Pull Request Builder</name>
+	<name>Pull Request Processing Tools - Parent</name>
 	<inceptionYear>2014</inceptionYear>
-	<description>In order to run maven plugins we need a project with a pom file.  This project serves that need providing a small pom configured to use the Git Workflow Maven Plugin for building the kuali student ks-development repository.</description>
+	<description>Parent Pom for the Pull Request Processing Tools which support different phases of the 
+	Git Pull Request Processing Work Flow.
+	</description>
 	<properties>
+		<git-workflow.version>0.0.8</git-workflow.version>
+		<fusion.version>0.0.4</fusion.version>
+		
+		<!-- Start List Open Pull Requests Section -->
+		<listOpenPullRequests.phase>none</listOpenPullRequests.phase>
 		
 		<!-- Start Fetch Open Pull Requests Section -->
 		
@@ -71,20 +75,66 @@
 		<!-- End Push DB Changes Section -->
 	</properties>
 	
+	
+	<modules>
+		<module>pull-request-gatekeeper</module>
+		<module>pull-request-builder</module>
+	</modules>
+	<scm>
+		<url>https://github.com/kuali-student/pull-request-processing</url>
+		<connection>scm:git:git@github.com:kuali-student/pull-request-processing.git</connection>
+    	<developerConnection>scm:git:git@github.com:kuali-student/pull-request-processing.git</developerConnection>
+		<tag>master</tag>
+	</scm>
+	<developers>
+		<developer>
+			<id>jcaddel</id>
+			<name>Jeff Caddel</name>
+			<email>jcaddel@kuali.org</email>
+		</developer>
+		<developer>
+			<id>michael.ocleirigh</id>
+			<name>Michael O'Cleirigh</name>
+			<email>michael.ocleirigh@kuali.org</email>
+		</developer>
+	</developers>
 	<build>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.kuali.maven.plugins</groupId>
+					<artifactId>git-workflow-maven-plugin</artifactId>
+					<version>${git-workflow.version}</version>
+				</plugin>
+			</plugins>
+		</pluginManagement>
 		<plugins>
 			<plugin>
 				<groupId>org.kuali.maven.plugins</groupId>
 				<artifactId>git-workflow-maven-plugin</artifactId>
-				<version>${git-workflow.version}</version>
 				<executions>
 					<execution>
-			            <id>list</id>
+			            <id>list-open-pull-requests</id>
+			            <phase>${listOpenPullRequests.phase}</phase>
+			            <goals>
+			              <goal>listOpenPullRequests</goal>
+			            </goals>
+			            <inherited>true</inherited>
+			            <configuration>
+			            	<sourceGithubUser>kuali-student</sourceGithubUser>
+			            	<sourceGithubRepo>ks-development</sourceGithubRepo>
+			            	<sourceGithubBranch>development</sourceGithubBranch>
+			            	<reportFileNamePrefix>target/ks-development-open-pull-requests</reportFileNamePrefix>
+			            </configuration>
+			        </execution>
+				
+					<execution>
+			            <id>fetch-open-pull-requests</id>
 			            <phase>${fetchOpenPullRequests.phase}</phase>
 			            <goals>
 			              <goal>fetchOpenPullRequests</goal>
 			            </goals>
-			            <inherited>false</inherited>
+			            <inherited>true</inherited>
 			            <configuration>
 			            	<sourceGithubUser>kuali-student</sourceGithubUser>
 			            	<sourceGithubRepo>ks-development</sourceGithubRepo>
@@ -100,7 +150,7 @@
 			            <goals>
 			              <goal>identifyChangesInApi</goal>
 			            </goals>
-			            <inherited>false</inherited>
+			            <inherited>true</inherited>
 			            <configuration>
 			            	<sourceGithubUser>kuali-student</sourceGithubUser>
 			            	<sourceGithubRepo>ks-development</sourceGithubRepo>
@@ -119,7 +169,7 @@
 			            <goals>
 			              <goal>pushRef</goal>
 			            </goals>
-			            <inherited>false</inherited>
+			            <inherited>true</inherited>
 			            <configuration>
 			            	<repositoryRelativePath>target/ks-impex-repo</repositoryRelativePath>
 			            	<localRef>${push-db-changes.pull-request-branch-name}</localRef>
