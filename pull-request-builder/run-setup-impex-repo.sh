@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 #
-# run-builder.sh
+# run-setup-impex-repo.sh
 #
-# Determine if we should be running the manual impex process.
+# This will checkout the ks-impex repository and setup the pull-request versions 
+# and create the local pull-request branch.
+#
+#
+# This script will facilitate the setup.
 #
 # Expected Jenkins Build Parameter Names:
 # PULL_REQUEST_NUMBER

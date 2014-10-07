@@ -36,16 +36,7 @@ runAllTest () {
 
 mvn clean
 
-mkdir -p target
-
-echo "Fetching pull request $PULL_REQUEST_NUMBER head at $PULL_REQUEST_COMMIT_ID from github"
-mvn initialize -DfetchOpenPullRequests.target-pull-request-number=$PULL_REQUEST_NUMBER -DfetchOpenPullRequests.target-commit-id=$PULL_REQUEST_COMMIT_ID -DfetchOpenPullRequests.phase=initialize
-
-cd target/ks-repo
-
-# runs in the subshell to keep the current directory at the top level.
-echo "Checkout pull-request-${PULL_REQUEST_NUMBER} branch"
-git checkout pull-request-${PULL_REQUEST_NUMBER}
+./run-prepare-ks-repo.sh
 
 if test -z "$MODULE" 
 then
