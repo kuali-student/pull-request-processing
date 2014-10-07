@@ -40,9 +40,7 @@ then
 	exit 1
 fi
 
-# We want to use the 'identifyChangesInGit' mojo to see if we need to run anything.
-# that mojo will work against the target/ks-repo on the pull-request branch
-# and identify the most recent commit from the tip that has sql changes.
+
 
 # run local manual impex process
 
