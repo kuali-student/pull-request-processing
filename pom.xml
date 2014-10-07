@@ -19,8 +19,8 @@
 	<inceptionYear>2014</inceptionYear>
 	<description>In order to run maven plugins we need a project with a pom file.  This project serves that need providing a small pom configured to use the Git Workflow Maven Plugin for building the kuali student ks-development repository.</description>
 	<properties>
-		<git-workflow.version>0.0.8-SNPASHOT</git-workflow.version>
-		<fusion.version>0.0.4-SNAPSHOT</fusion.version>
+		<git-workflow.version>0.0.8</git-workflow.version>
+		<fusion.version>0.0.4</fusion.version>
 		
 		<!-- Start Fetch Open Pull Requests Section -->
 		
