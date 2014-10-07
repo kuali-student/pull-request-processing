@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2014 The Kuali Foundation Licensed under the Educational 
+	Community License, Version 2.0 (the "License"); you may not use this file 
+	except in compliance with the License. You may obtain a copy of the License 
+	at http://www.opensource.org/licenses/ecl2.php Unless required by applicable 
+	law or agreed to in writing, software distributed under the License is distributed 
+	on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either 
+	express or implied. See the License for the specific language governing permissions 
+	and limitations under the License. -->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>org.kuali.student</groupId>
+	<artifactId>pull-request-builder</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<packaging>jar</packaging>
+	<url>http://${kuali.site.hostname}/maven/plugins/${project.artifactId}/${project.version}</url>
+	<name>Pull Request Builder</name>
+	<inceptionYear>2014</inceptionYear>
+	<description>In order to run maven plugins we need a project with a pom file.  This project serves that need providing a small pom configured to use the Git Workflow Maven Plugin for building the kuali student ks-development repository.</description>
+	<properties>
+		<git-workflow.version>0.0.8</git-workflow.version>
+		<fusion.version>0.0.4</fusion.version>
+		
+		<!-- Start Fetch Open Pull Requests Section -->
+		
+		<!-- intended to be set on the maven command line when the fetching the open pull requests -->
+		<fetchOpenPullRequests.phase>none</fetchOpenPullRequests.phase>
+		
+		<!-- Set to > 0 to select a specific pull request -->
+		<fetchOpenPullRequests.target-pull-request-number>-1</fetchOpenPullRequests.target-pull-request-number>
+		
+		<!-- pass through the expected pull request head. fail if this is not the current pull request branch head. -->
+		<fetchOpenPullRequests.target-commit-id>commitId</fetchOpenPullRequests.target-commit-id>
+		
+		<!-- End Fetch Open Pull Requests Section -->
+		
+		<!-- Start Identify Changes in Api Section -->
+		
+		<!-- intended to be set on the maven command line when the fetching the open pull requests -->
+		<identifyChangesInApi>none</identifyChangesInApi>
+		
+		<!-- Set to > 0 to select a specific pull request -->
+		<identifyChangesInApi.target-pull-request-number/>
+		
+		<!-- End Identify Changes In Api Section -->
+		
+		<!-- Start Tag Section -->
+		
+		<!-- controls when the tag configuration is performed -->
+		<tag.phase>none</tag.phase>
+		
+		<!--
+		 
+		   Set this to be the name of the variable containing the pull request number.
+		   
+		   Inside of the tag mojo the environment variable is retrieved using this key.
+		   
+		 -->
+		<tag.pull-request-number-property></tag.pull-request-number-property>
+		
+		<!-- End Tag Section -->
+		
+		<!-- Start Push DB Changes Section -->
+		<push-db-changes.phase>none</push-db-changes.phase>
+		
+		<!-- Required when pushing db changes to be set to the name of the pull-request branch. -->
+		<push-db-changes.pull-request-branch-name/>
+		
+		<!-- End Push DB Changes Section -->
+	</properties>
+	
+	
+	<scm>
+		<url>https://github.com/kuali-student/pull-request-builder</url>
+		<connection>scm:git:git@github.com:kuali-student/pull-request-builder.git</connection>
+    	<developerConnection>scm:git:git@github.com:kuali-student/pull-request-builder.git</developerConnection>
+		<tag>master</tag>
+	</scm>
+	<developers>
+		<developer>
+			<id>jcaddel</id>
+			<name>Jeff Caddel</name>
+			<email>jcaddel@kuali.org</email>
+		</developer>
+		<developer>
+			<id>michael.ocleirigh</id>
+			<name>Michael O'Cleirigh</name>
+			<email>michael.ocleirigh@kuali.org</email>
+		</developer>
+	</developers>
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.kuali.maven.plugins</groupId>
+				<artifactId>git-workflow-maven-plugin</artifactId>
+				<version>${git-workflow.version}</version>
+				<executions>
+					<execution>
+			            <id>list</id>
+			            <phase>${fetchOpenPullRequests.phase}</phase>
+			            <goals>
+			              <goal>fetchOpenPullRequests</goal>
+			            </goals>
+			            <inherited>false</inherited>
+			            <configuration>
+			            	<sourceGithubUser>kuali-student</sourceGithubUser>
+			            	<sourceGithubRepo>ks-development</sourceGithubRepo>
+			            	<sourceGithubBranch>development</sourceGithubBranch>
+			            	<repositoryRelativePath>target/ks-repo</repositoryRelativePath>
+			            	<specificPullRequest>${fetchOpenPullRequests.target-pull-request-number}</specificPullRequest>
+			            	<expectedPullRequestHeadCommitId>${fetchOpenPullRequests.target-commit-id}</expectedPullRequestHeadCommitId>
+			            </configuration>
+			        </execution>
+			        <execution>
+			            <id>show-changes</id>
+			            <phase>${identifyChangesInApi.phase}</phase>
+			            <goals>
+			              <goal>identifyChangesInApi</goal>
+			            </goals>
+			            <inherited>false</inherited>
+			            <configuration>
+			            	<sourceGithubUser>kuali-student</sourceGithubUser>
+			            	<sourceGithubRepo>ks-development</sourceGithubRepo>
+			            	<sourceGithubBranch>development</sourceGithubBranch>
+			            	<specificPullRequest>${identifyChangesInApi.target-pull-request-number}</specificPullRequest>
+			            	<environmentVariablesToInclude>
+			            		<variable>PULL_REQUEST_COMMIT_ID</variable>
+			            	</environmentVariablesToInclude>
+			            </configuration>
+			        </execution>
+			        
+			         <execution>
+			         	<!-- Designed for pushing the pull-request branch into the upstream -->
+			            <id>push-db-changes</id>
+			            <phase>${push-db-changes.phase}</phase>
+			            <goals>
+			              <goal>pushRef</goal>
+			            </goals>
+			            <inherited>false</inherited>
+			            <configuration>
+			            	<repositoryRelativePath>target/ks-impex-repo</repositoryRelativePath>
+			            	<localRef>${push-db-changes.pull-request-branch-name}</localRef>
+							<remoteName>origin</remoteName>
+							<remoteCredentialTemplate>https://%s:%s@github.com</remoteCredentialTemplate>	
+							<userNameEnvVarName>GITHUB_AUTH_USERNAME</userNameEnvVarName>
+							<passwordEnvVarName>GITHUB_AUTH_PASSWORD</passwordEnvVarName>
+			            </configuration>
+			        </execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+</project>
