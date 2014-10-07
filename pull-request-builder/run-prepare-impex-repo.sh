@@ -75,27 +75,4 @@ else
 	
 fi
 
-echo "Run manual impex process"
 
-# run local manual impex process
-
-# this loads in all of the -sql module artifacts
-mvn initialize -Plocal,source-db $DEBUG_DB_OPTS -N -e
-
-# this creates the .mpx and .xml files from the source database 
-mvn generate-resources -Pdump,local $DEBUG_DB_OPTS -N -e
-
-# this moves the created .mpx and .xml files back under the src/main/resources directory.
-mvn process-resources -Pimpexscm -N
-
-# we want to add all newly generated files
-git add src/main/resources
-
-git commit -a -m'Commit Impex Changes for pull-request-$PULL_REQUEST_NUMBER\n\nFor pull-request commit id: $KS_REPO_PR_BRANCH_HEAD_ID'
-
-# move back up to the pull-request-builder directory
-cd ../..
-
-set +e
-# update the ks-impex-repo $PR_BRANCH into github.
-mvn process-resources -Dpush-db-changes.phase=process-resources  -Dpush-db-changes.pull-request-branch-name=$PR_BRANCH

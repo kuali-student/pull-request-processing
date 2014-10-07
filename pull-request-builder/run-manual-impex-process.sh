@@ -1,70 +1,70 @@
 #!/usr/bin/env bash
 #
-# run-builder.sh
+# run-manual-impex-process.sh
 #
 # Determine if we should be running the manual impex process.
+#
+# If we need to it will run the manual impex process and push the branch
+#
+# into the upstream.
 #
 # Expected Jenkins Build Parameter Names:
 # PULL_REQUEST_NUMBER
 # PULL_REQUEST_COMMIT_ID
 #
 
+# Assumes we are run after run-prepare-ks-impex-repo.sh
+#
+# that the target/ks-impex-repo exists and is on the pull request branch
+# that the target/ks-repo exists and is on the pull request branch
+
 # for example set this to -Doracle.dba.password=<password>
 DEBUG_DB_OPTS=
 
-REPO_BASE=https://github.com/kuali-student
-
-KS_REPO=$REPO_BASE/ks-development
-KS_IMPEX_REPO=$REPO_BASE/ks-development-impex
+KS_REPO=target/ks-repo
+KS_IMPEX_REPO=target/ks-impex-repo
 
 PR_BRANCH="pull-request-${PULL_REQUEST_NUMBER}"
 
-# make sure all environment variables are set
-set -o nounset
-# exit immediately if a pipeline returns a non-zero status
-set -o errexit
+echo "Run manual impex process"
 
-if test -f target/sql-changes.dat
+if test ! -d $KS_REPO
 then
-	# change detector says there are sql changes on this pull request
-	
-	# run the manual impex process.
-	
-	# first checkout the ks-repo
-	mvn clean
-
-	mkdir -p target
-
-	echo "Fetching pull request $PULL_REQUEST_NUMBER head at $PULL_REQUEST_COMMIT_ID"
-	mvn process-resources -DfetchOpenPullRequests.target-pull-request-number=$PULL_REQUEST_NUMBER -DfetchOpenPullRequests.target-commit-id=$PULL_REQUEST_COMMIT_ID -DfetchOpenPullRequests.phase=process-resources 	
-	
-	cd target/ks-repo
-
-	echo "Checkout $PR_BRANCH branch"
-	git checkout $PR_BRANCH	
-	
-	KS_REPO_PR_BRANCH_HEAD_ID=$(git log --format=%H -n 1 $PR_BRANCH)
-	echo "$PR_BRANCH at commit id: $KS_REPO_PR_BRANCH_HEAD_ID"
-	
-	# set the pom versions
-	## This will use the Fusion Tag Mojo
-	mvn process-resources -Ppull-request -Dfusion.tag.phase=process-resources -Dfusion.tag.pull-request-number-property=PULL_REQUEST_NUMBER -N -e 
-	
-	# ideally this would work but if not then do a full build
-	# once development is building properly try switching this back.
-	# mvn clean install -Psql-only,impex-only
-	
-	mvn clean install -DskipTests -Pskip-all-wars
-	
-	# move back up to the pull-request-builder directory
-	cd ../..
-	
-	bash -e ./run-setup-impex-repo.sh
-	
-	
-else
-	echo "No SQL Changes Detected so Skipping Manual Impex Process"
+	echo "$KS_REPO does not exist"
+	exit 1
 fi
 
+if test ! -d $KS_IMPEX_REPO
+then
+	echo "$KS_IMPEX_REPO does not exist"
+	exit 1
+fi
+
+# We want to use the 'identifyChangesInGit' mojo to see if we need to run anything.
+# that mojo will work against the target/ks-repo on the pull-request branch
+# and identify the most recent commit from the tip that has sql changes.
+
+# run local manual impex process
+
+# this loads in all of the -sql module artifacts
+mvn initialize -Plocal,source-db $DEBUG_DB_OPTS -N -e
+
+# this creates the .mpx and .xml files from the source database 
+mvn generate-resources -Pdump,local $DEBUG_DB_OPTS -N -e
+
+# this moves the created .mpx and .xml files back under the src/main/resources directory.
+mvn process-resources -Pimpexscm -N
+
+# we want to add all newly generated files
+git add src/main/resources
+
+git commit -a -m'Commit Impex Changes for pull-request-$PULL_REQUEST_NUMBER\n\nFor pull-request commit id: $KS_REPO_PR_BRANCH_HEAD_ID'
+
+# move back up to the pull-request-builder directory
+cd ../..
+
+set +e
+# update the ks-impex-repo $PR_BRANCH into github.
+mvn process-resources -Dpush-db-changes.phase=process-resources  -Dpush-db-changes.pull-request-branch-name=$PR_BRANCH
 
 # EOF
