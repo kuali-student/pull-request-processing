@@ -12,17 +12,43 @@
 # PULL_REQUEST_NUMBER
 # PULL_REQUEST_COMMIT_ID
 #
-
+# GITHUB_AUTH_USERNAME
+# GITHUB_AUTH_PASSWORD
+#
 # Assumes we are run after run-prepare-ks-impex-repo.sh
 #
 # that the target/ks-impex-repo exists and is on the pull request branch
 # that the target/ks-repo exists and is on the pull request branch
 
 # for example set this to -Doracle.dba.password=<password>
-DEBUG_DB_OPTS=
+#DEBUG_DB_OPTS=
 
 KS_REPO=target/ks-repo
 KS_IMPEX_REPO=target/ks-impex-repo
+
+if test -z "$PULL_REQUEST_NUMBER"
+then
+	echo "Missing variable PULL_REQUEST_NUMBER"
+	exit 1;
+fi
+
+if test -z "$PULL_REQUEST_COMMIT_ID"
+then
+	echo "Missing variable PULL_REQUEST_COMMIT_ID"
+	exit 1;
+fi
+
+if test -z "$GITHUB_AUTH_PASSWORD"
+then
+	echo "Missing variable GITHUB_AUTH_PASSWORD"
+	exit 1;
+fi
+
+if test -z "$GITHUB_AUTH_USERNAME"
+then
+	echo "Missing variable GITHUB_AUTH_USERNAME"
+	exit 1;
+fi
 
 PR_BRANCH="pull-request-${PULL_REQUEST_NUMBER}"
 
@@ -40,9 +66,18 @@ then
 	exit 1
 fi
 
+# first prepare the sql jars on the ks side
 
+cd $KS_REPO
 
-# run local manual impex process
+echo "Build -sql artifacts in the KS repository"
+mvn clean install -DskipTests -Dks.gwt.compile.phase=none -Dks.build.angular.phase=none -Psql-only
+
+cd ../..
+
+cd $KS_IMPEX_REPO
+
+echo "Run local manual impex process"
 
 # this loads in all of the -sql module artifacts
 mvn initialize -Plocal,source-db $DEBUG_DB_OPTS -N -e
@@ -56,12 +91,16 @@ mvn process-resources -Pimpexscm -N
 # we want to add all newly generated files
 git add src/main/resources
 
-git commit -a -m'Commit Impex Changes for pull-request-$PULL_REQUEST_NUMBER\n\nFor pull-request commit id: $KS_REPO_PR_BRANCH_HEAD_ID'
+echo "Commit manual impex changes"
+
+git commit -a -m"Update Impex Data for pull-request-$PULL_REQUEST_NUMBER" -m"For KS commit id: $KS_REPO_PR_BRANCH_HEAD_ID"
 
 # move back up to the pull-request-builder directory
 cd ../..
 
 set +e
+
+echo "push manual impex changes in $PR_BRANCH up to github"
 # update the ks-impex-repo $PR_BRANCH into github.
 mvn validate -Dpush-db-changes.phase=validate  -Dpush-db-changes.pull-request-branch-name=$PR_BRANCH
 

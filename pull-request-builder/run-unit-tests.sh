@@ -16,7 +16,7 @@ runModuleTest () {
 
 	# a module is specified so we need to first build the test code for everything
 	echo "Running unit tests for module = $M"
-	mvn clean install -DskipTests
+	mvn clean install -DskipTests -Dks.gwt.compile.phase=none -Dks.build.angular.phase=none 
 
 	# run unit tests on the identified module only
 	echo "cd $M"

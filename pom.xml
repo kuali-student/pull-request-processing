@@ -174,7 +174,6 @@
 			            	<repositoryRelativePath>target/ks-impex-repo</repositoryRelativePath>
 			            	<localRef>${push-db-changes.pull-request-branch-name}</localRef>
 							<remoteName>origin</remoteName>
-							<remoteCredentialTemplate>https://%s:%s@github.com</remoteCredentialTemplate>	
 							<userNameEnvVarName>GITHUB_AUTH_USERNAME</userNameEnvVarName>
 							<passwordEnvVarName>GITHUB_AUTH_PASSWORD</passwordEnvVarName>
 			            </configuration>
