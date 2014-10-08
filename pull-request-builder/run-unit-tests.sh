@@ -38,6 +38,8 @@ mvn clean
 
 ./run-prepare-ks-repo.sh
 
+cd target/ks-repo
+
 if test -z "$MODULE" 
 then
 	runAllTest $PULL_REQUEST_NUMBER
