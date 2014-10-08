@@ -16,13 +16,13 @@ runModuleTest () {
 
 	# a module is specified so we need to first build the test code for everything
 	echo "Running unit tests for module = $M"
-	mvn clean install -DskipTests -Dks.gwt.compile.phase=none -Dks.build.angular.phase=none 
+	mvn clean install -DskipTests -Dks.gwt.compile.phase=none -Dks.build.angular.phase=none -Pskip-all-wars
 
 	# run unit tests on the identified module only
 	echo "cd $M"
 	cd $M
 
-	mvn clean install -Dks.gwt.compile.phase=none -Dks.build.angular.phase=none -Dmaven.test.failure.ignore=true
+	mvn clean install -Dks.gwt.compile.phase=none -Dks.build.angular.phase=none -Dmaven.test.failure.ignore=true -Pskip-all-wars
 	
 }
 
@@ -31,7 +31,7 @@ runAllTest () {
 	PR=$1
 	echo "Running all unit tests for pull request $PR"
 	# no module is specified so just run the build at the top level
-	mvn clean install -Dks.gwt.compile.phase=none -Dks.build.angular.phase=none -Dmaven.test.failure.ignore=true
+	mvn clean install -Dks.gwt.compile.phase=none -Dks.build.angular.phase=none -Dmaven.test.failure.ignore=true -Pskip-all-wars
 }
 
 mvn clean

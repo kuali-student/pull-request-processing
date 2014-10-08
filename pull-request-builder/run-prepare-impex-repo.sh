@@ -44,7 +44,6 @@ cd ks-impex-repo
 echo "Setup Origin Remote"
 
 
-echo "\"[remote \"origin\"]\" >> .git/config"
 echo "[remote \"origin\"]" >> .git/config
 echo "    url=$KS_IMPEX_REPO" >> .git/config
 

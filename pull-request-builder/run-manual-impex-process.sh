@@ -71,7 +71,7 @@ fi
 cd $KS_REPO
 
 echo "Build -sql artifacts in the KS repository"
-mvn clean install -DskipTests -Dks.gwt.compile.phase=none -Dks.build.angular.phase=none -Psql-only
+mvn clean install -DskipTests -Dks.gwt.compile.phase=none -Dks.build.angular.phase=none -Pskip-all-wars
 
 cd ../..
 
