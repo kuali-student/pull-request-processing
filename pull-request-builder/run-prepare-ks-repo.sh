@@ -32,4 +32,10 @@ cd target/ks-repo
 echo "Checkout pull-request-${PULL_REQUEST_NUMBER} branch"
 git checkout pull-request-${PULL_REQUEST_NUMBER}
 
+echo "git merge origin/development"
+git merge origin/development
+
+# set the pom versions to the pull-request-$number
+mvn validate -Dfusion.tag.phase=validate -Dfusion.tag.pull-request-number-property=PULL_REQUEST_NUMBER -Dfusion.tag.pull-request-number=$PULL_REQUEST_NUMBER -N -e
+	
 # EOF
