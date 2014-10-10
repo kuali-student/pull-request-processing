@@ -4,8 +4,12 @@
 #
 # written by Orlando Ramirez (orlando.ramirezmartinez@utoronto.ca)
 # enhanced by Haroon Rafique (haroon.rafique@kuali.org)
+# modified for Git by Michael O'Cleirigh (michael.ocleirigh@kuali.org)
 #
-# TODO: Drop database schema after the application is shut down
+# The Git version expects target/ks-repo to exist and target/ks-impex-repo to exist
+#
+# Both repositories should be setup on the pull-request-X version and the artifacts should already be compiled.
+# We then start with running the manual impex process for bundled.
 
 # maven version 3.2 on jenkins
 MVN="mvn"
@@ -15,18 +19,27 @@ set -o nounset
 # exit immediately if a pipeline returns a non-zero status
 set -o errexit
 
+if test -z "$MAVEN_USERNAME"
+then
+	echo "Missing MAVEN_USERNAME Variable"
+	exit 1
+fi
+
+if test -z "$MAVEN_PASSWORD"
+then
+	echo "Missing MAVEN_PASSWORD Variable"
+	exit 1
+fi
+
 # some default options
-AFT_URL="http://mirror.svn.kuali.org/repos/student/test/functional-automation/sambal/trunk"
-AFT_STYLE="enr"
-REPO_PREFIX="http://mirror.svn.kuali.org/repos/student/enrollment/ks-deployments/tags/builds/ks-deployments-2.1/2.1.1-FR2-M1"
-CI_JOB_URL="https://ci.kuali.org/view/student/view/enr-1.0/view/deploy/job/ks-enr-1.0-nightly-build"
-ARTIFACT_PREFIX="2.1.1-FR2-M1"
-SCHEMA_PREFIX="KSAFT_"
+KS_REPO=${WORKSPACE}/pull-request-builder/target/ks-repo
+KS_IMPEX_REPO=${WORKSPACE}/pull-request-builder/target/ks-impex-repo
+KS_AFT_REPO=${WORKSPACE}/pull-request-builder/target/ks-aft-repo
 
 # tomcat variables
 TOMCAT_VERSION=7.0.56
-export CATALINA_HOME=${WORKSPACE}/tomcat
-export CATALINA_OPTS="-Xms512m -Xmx4g -XX:MaxPermSize=512m -verbose:gc -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+PrintHeapAtGC -XX:+PrintTenuringDistribution -Xloggc:${WORKSPACE}/tomcat/logs/heap.log -XX:HeapDumpPath=${WORKSPACE}/tomcat/logs -XX:+HeapDumpOnOutOfMemoryError"
+export CATALINA_HOME=${WORKSPACE}/pull-request-builder/target/tomcat
+export CATALINA_OPTS="-Xms512m -Xmx4g -XX:MaxPermSize=512m -verbose:gc -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+PrintHeapAtGC -XX:+PrintTenuringDistribution -Xloggc:${CATALINA_HOME}/logs/heap.log -XX:HeapDumpPath=${CATALINA_HOME}/logs -XX:+HeapDumpOnOutOfMemoryError"
 export CATALINA_PID=$(mktemp --suffix .ksaft.catalina 2>/dev/null || mktemp -t .ksaft.catalina)
 
 function usage() {
@@ -37,26 +50,9 @@ Usage: $ME
         Enable debug messages during execution
     -h|--help
         Print this message and exit.
-    --repo_prefix <url of svn code>
-        URL of the deployments directory to pull svn code from
-        default is http://mirror.svn.kuali.org/repos/student/enrollment/ks-deployments/tags/builds/ks-deployments-2.1/2.1.1-FR2-M1
-    --build_job_url <url of build job>
-        URL for the CI job that creates the tagged builds
-        default is https://ci.kuali.org/view/student/view/enr-1.0/view/deploy/job/ks-enr-1.0-nightly-build
-    --aft_url <url for afts>
-        URL for AFT code
-        default is http://mirror.svn.kuali.org/repos/student/test/functional-automation/sambal/trunk
     --aft_style Type of AFT to run
         Valid values are enr, ksap, cm, smoke
         default is enr
-    --artifact_prefix <prefix of artifact version>
-        e.g., 2.1.1-FR2-M1 or 2.1.0-FR1, etc.
-        default is 2.1.1-FR2-M1
-    --schema_prefix <prefix of schema name>
-        e.g., KSAFT_JDK8_
-        defualt is KSAFT_
-    --snapshot
-        Run off of SNAPSHOTs (instead of tags)
 
 EOT
     exit 2
@@ -77,52 +73,6 @@ function dbgprint() {
   fi
 }
 
-function get_latest_stable_build() {
-  dbgprint
-
-  OPT=""
-  if [ $DEBUG -eq 0 ]; then OPT="-s"; fi
-  BUILD_NUMBER=$(curl $OPT -k $CI_JOB_URL/lastStableBuild/buildNumber)
-  echo "${FUNCNAME[0]}: Latest Stable Build Number found: ${BUILD_NUMBER}"
-}
-
-function svn_export() {
-  dbgprint
-  if [ "$1" ]; then
-    dbgprint "Exporting repo $1"
-
-    svn info $1
-    if [ $SNAPSHOT -ne 0 ]; then
-      repo_root=$(svn info $1 | \
-        awk '/Repository Root/ {print $3}')
-
-      # obtain information about the individual repos pointed to by the
-      # externals
-
-      # externals is an associatve array
-      declare -A externals
-      # use process substition to read values from command
-      while read external local
-      do
-        externals[$local]=$external
-      done < <(svn propget svn:externals $1 | grep '^[^#]')
-      #        ^^^ get all external definitions
-
-      for local in "${!externals[@]}"
-      do
-        echo $local
-        # substitute ^ with $repo_root
-        svn info ${externals[$local]//^/$repo_root}
-      done
-    fi
-
-    OPT=""
-    if [ $DEBUG -eq 0 ]; then OPT="-q"; fi
-    svn $OPT export --force $1 $2
-    echo "${FUNCNAME[0]}: svn repo $1 successfully exported"
-  fi
-}
-
 function initialize_config() {
   dbgprint
 
@@ -130,11 +80,7 @@ function initialize_config() {
   if [ $SNAPSHOT -eq 0 ]
   then
     cp -p \
-      ${WORKSPACE}/ks-with-rice-bundled-${BUILD_NUMBER}/src/main/resources/rice.keystore \
-      ${HOME}/rice.keystore
-  else
-    cp -p \
-      ${WORKSPACE}/ks-aggregate/ks-deployments/ks-web/ks-with-rice-bundled/src/main/resources/rice.keystore \
+      ${KS_REPO}/ks-deployments/ks-web/ks-with-rice-bundled/src/main/resources/rice.keystore \
       ${HOME}/rice.keystore
   fi
 
@@ -144,11 +90,7 @@ function initialize_config() {
   if [ $SNAPSHOT -eq 0 ]
   then
     cp -p \
-      ${WORKSPACE}/ks-deployment-resources-${BUILD_NUMBER}/${filepath}/ks-with-rice-bundled-config.xml \
-      ~/kuali/main/dev/ks-with-rice-bundled-config.xml
-  else
-    cp -p \
-      ${WORKSPACE}/ks-aggregate/ks-deployments/ks-deployment-resources/${filepath}/ks-with-rice-bundled-config.xml \
+      ${KS_REPO}/ks-deployments/ks-deployment-resources/${filepath}/ks-with-rice-bundled-config.xml \
       ~/kuali/main/dev/ks-with-rice-bundled-config.xml
   fi
 
@@ -222,37 +164,24 @@ function extract_tomcat() {
     echo "found existing tomcat process. Killing it."
     # kill running catalina process
     pkill -9 -f catalina
-    rm -rf ${WORKSPACE}/tomcat
+    rm -rf ${CATALINA_HOME}
   fi
   set -e
-  mkdir -p ${WORKSPACE}/tomcat
+  mkdir -p ${CATALINA_HOME}
 
   tar xzf /tmp/apache-tomcat-$TOMCAT_VERSION.tar.gz --strip-components=1 \
-    -C ${WORKSPACE}/tomcat
-  chmod +x ${WORKSPACE}/tomcat/bin/*.sh
-  echo "${FUNCNAME[0]}: extracted tomcat to ${WORKSPACE}/tomcat."
-}
-
-function install_maven_dependency_plugin() {
-  dbgprint
-
-  set -x
-  cd ${WORKSPACE}
-  ${MVN} org.apache.maven.plugins:maven-dependency-plugin:2.8:get \
-        -Dartifact=org.apache.maven.plugins:maven-dependency-plugin:2.8:jar
-  if [ $DEBUG -eq 0 ]; then set +x; fi
-
-  echo "${FUNCNAME[0]}: installed maven dependency plugin."
+    -C ${CATALINA_HOME}
+  chmod +x ${CATALINA_HOME}/bin/*.sh
+  echo "${FUNCNAME[0]}: extracted tomcat to ${CATALINA_HOME}."
 }
 
 function install_oracle_driver() {
   dbgprint
 
   set -x
-  cd ${WORKSPACE}
-  ${MVN} org.apache.maven.plugins:maven-dependency-plugin:2.8:copy \
-    -Dartifact=com.oracle:ojdbc6_g:11.2.0.2:jar \
-    -DoutputDirectory=${WORKSPACE}/tomcat/lib
+  
+  wget --http-username=$MAVEN_USERNAME --http-password=$MAVEN_PASSWORD http://nexus.kuali.org/service/local/repo_groups/developer/content/com/oracle/ojdbc6/11.2.0.2/ojdbc6-11.2.0.2.jar -o ${CATALINA_HOME}/lib
+  
   if [ $DEBUG -eq 0 ]; then set +x; fi
   echo "${FUNCNAME[0]}: installed oracle driver."
 }
@@ -260,8 +189,8 @@ function install_oracle_driver() {
 function setup_tomcat() {
   dbgprint
 
-  rm -rf ${WORKSPACE}/tomcat/webapps/*
-  cat > ${WORKSPACE}/tomcat/conf/server.xml <<EOT
+  rm -rf ${CATALINA_HOME}/webapps/*
+  cat > ${CATALINA_HOME}/conf/server.xml <<EOT
 <?xml version='1.0' encoding='utf-8'?>
 <Server port="8005" shutdown="SHUTDOWN">
   <!-- SecurityListener commented out to allow root to run tomcat -->
@@ -280,7 +209,7 @@ function setup_tomcat() {
       <Host name="localhost"  appBase="webapps"
             unpackWARs="true" autoDeploy="true"
             xmlValidation="false" xmlNamespaceAware="false">
-        <Context docBase="${WORKSPACE}/tomcat" path="/tomcat"/>
+        <Context docBase="${CATALINA_HOME}" path="/tomcat"/>
         <Context docBase="\${user.home}" path="/home"/>
       </Host>
     </Engine>
@@ -290,11 +219,10 @@ EOT
   echo "${FUNCNAME[0]}: tomcat setup finished."
 }
 
-function compile_snapshot() {
+function compile_pull_request() {
   dbgprint
 
-  cd ${WORKSPACE}/ks-aggregate
-  set -x
+   set -x
   ${MVN} clean install -DskipTests -Pbundled-only-war -Dks.gwt.compile.phase=none
   if [ $DEBUG -eq 0 ]; then set +x; fi
 }
@@ -302,20 +230,10 @@ function compile_snapshot() {
 function install_war_artifact() {
   dbgprint
 
-  if [ $SNAPSHOT -eq 0 ]
-  then
-    set -x
-    ${MVN} org.apache.maven.plugins:maven-dependency-plugin:2.8:copy \
-      -Dartifact=org.kuali.student.web:ks-with-rice-bundled:${ARTIFACT_PREFIX}-build-${BUILD_NUMBER}:war \
-      -DoutputDirectory=.
-    if [ $DEBUG -eq 0 ]; then set +x; fi
-
-    cp -p ks-with-rice-bundled-${ARTIFACT_PREFIX}-build-${BUILD_NUMBER}.war \
-      ${WORKSPACE}/tomcat/webapps/ROOT.war
-  else
-    cp -p ${WORKSPACE}/ks-aggregate/ks-deployments/ks-web/ks-with-rice-bundled/target/ks-with-rice-bundled-${ARTIFACT_PREFIX}-SNAPSHOT.war \
-      ${WORKSPACE}/tomcat/webapps/ROOT.war
-  fi
+  # copy assembled war file into tomcat webapps directory
+    cp -p ${KS_REPO}/ks-deployments/ks-web/ks-with-rice-bundled/target/ks-with-rice-bundled-*.war \
+      ${CATALINA_HOME}/webapps/ROOT.war
+  
   echo "${FUNCNAME[0]}: installation of war finished."
 }
 
@@ -362,7 +280,7 @@ function start_tomcat() {
 }
 
 function run_enr_afts() {
-  ${WORKSPACE}/jenkinscucumber \
+  ${KS_AFT_REPO}/jenkinscucumber \
     http://localhost:8080 \
     headless_data \
     headless \
@@ -372,7 +290,7 @@ function run_enr_afts() {
 }
 
 function run_smoke_afts() {
-  ${WORKSPACE}/jenkinscucumber \
+  ${KS_AFT_REPO}/jenkinscucumber \
     http://localhost:8080 \
     headless_smoke_test_data \
     headless_smoke_test \
@@ -381,17 +299,18 @@ function run_smoke_afts() {
 
 function run_non_enr_afts() {
   set -x
+  cd $KS_AFT_REPO
   gem install --no-rdoc --no-ri bundler
   bundle install
   firefox -version
-  chmod 777 $WORKSPACE/cleanup_test_processes.sh
-  $WORKSPACE/cleanup_test_processes.sh
+  chmod 777 ${KS_AFT_REPO}/cleanup_test_processes.sh
+  $KS_AFT_REPO/cleanup_test_processes.sh
   cucumber TEST_SITE='http://localhost:8080' \
     FIREFOX_PATH=/usr/bin/firefox27 \
     --profile headless \
     --format pretty \
     --format json \
-    --out $WORKSPACE/cucumber1.json --format junit --out .
+    --out $KS_AFT_REPO/cucumber1.json --format junit --out .
   if [ $DEBUG -eq 0 ]; then set +x; fi
 }
 
@@ -432,11 +351,6 @@ function set_debug_mode {
   set -x
 }
 
-function set_snapshot {
-  let "SNAPSHOT+=1"
-  REPO_PREFIX="http://mirror.svn.kuali.org/repos/student/enrollment/aggregate/trunk"
-}
-
 # check that a variable is set and is not the empty string
 function check_not_blank {
   if [ ! -n "$2" ]; then
@@ -447,12 +361,7 @@ function check_not_blank {
 
 # make sure we have all the arguments we need to proceed
 function check_args {
-  check_not_blank AFT_URL $AFT_URL
   check_not_blank AFT_STYLE $AFT_STYLE
-  check_not_blank REPO_PREFIX $REPO_PREFIX
-  check_not_blank CI_JOB_URL $CI_JOB_URL
-  check_not_blank ARTIFACT_PREFIX $ARTIFACT_PREFIX
-  check_not_blank SCHEMA_PREFIX $SCHEMA_PREFIX
 }
 
 function process_args {
@@ -467,7 +376,7 @@ function process_args {
   # --longoptions specifies long options
   args=$(getopt \
     --options h \
-    --longoptions "help,debug,repo_prefix:,build_job_url:,aft_url:,artifact_prefix:,schema_prefix:,aft_style:,snapshot" \
+    --longoptions "help,debug,aft_style: \
     --name "$ME" -- "$@")
 
   if [ $? != 0 ]
@@ -487,18 +396,6 @@ function process_args {
         set_debug_mode
         shift
         ;;
-      --repo_prefix)
-        REPO_PREFIX=$2
-        shift 2
-        ;;
-      --build_job_url)
-        CI_JOB_URL=$2
-        shift 2
-        ;;
-      --aft_url)
-        AFT_URL=$2
-        shift 2
-        ;;
       --aft_style)
         AFT_STYLE=$2
         case $AFT_STYLE in
@@ -511,18 +408,6 @@ function process_args {
             ;;
         esac
         shift 2
-        ;;
-      --artifact_prefix)
-        ARTIFACT_PREFIX=$2
-        shift 2
-        ;;
-      --schema_prefix)
-        SCHEMA_PREFIX=$2
-        shift 2
-        ;;
-      --snapshot)
-        set_snapshot
-        shift
         ;;
       --)
         shift
@@ -541,34 +426,25 @@ process_args "$@"
 # make sure we have what we need to proceed
 check_args
 
-if [ $SNAPSHOT -eq 0 ]; then
-  # retrieve latest stable build number
-  get_latest_stable_build
+# compile things first
+cd $KS_REPO
 
-  # export impex sources from svn repo to specified path
-  svn_export \
-    ${REPO_PREFIX}/build-${BUILD_NUMBER}/ks-dbs/ks-impex/ks-impex-bundled-db \
-    ${WORKSPACE}/ks-impex-bundled-db-build-${BUILD_NUMBER}
+# compile the pull request
+compile_pull_request
 
-  # export deployment sources from svn repo to specified path
-  svn_export \
-    ${REPO_PREFIX}/build-${BUILD_NUMBER}/ks-deployment-resources \
-    ${WORKSPACE}/ks-deployment-resources-${BUILD_NUMBER}
+cd ../..
 
-  # export ks-with-rice-bundled sources from svn repo to specified path
-  svn_export \
-    ${REPO_PREFIX}/build-${BUILD_NUMBER}/ks-web/ks-with-rice-bundled \
-    ${WORKSPACE}/ks-with-rice-bundled-${BUILD_NUMBER}
-else
-  # export all sources from svn repo to specified path
-  svn_export ${REPO_PREFIX} ${WORKSPACE}/ks-aggregate
+cd $KS_IMPEX_REPO
+# build the .mpx containing jars
+mvn clean install
 
-  # compile snapshot
-  compile_snapshot
-fi
+cd ../..
 
-# export sambal sources from svn repo to specified path
-svn_export $AFT_URL ${WORKSPACE}
+cd $KS_REPO
+
+cd ks-deployments/ks-dbs/ks-impex
+
+mvn initialize -Pdb,oracle,ks-impex-bundled-db -Dproperties.decrypt=false -o
 
 # initialize config file
 initialize_config
@@ -578,9 +454,6 @@ download_tomcat
 
 # extract tomcat
 extract_tomcat
-
-# install maven dependency plugin
-install_maven_dependency_plugin
 
 # install oracle driver
 install_oracle_driver
@@ -592,7 +465,7 @@ setup_tomcat
 install_war_artifact
 
 # initialize schema (using impex)
-initialize_schema
+#initialize_schema
 
 # register the cleanup function as callback to execute when a signal
 # is sent to this process
