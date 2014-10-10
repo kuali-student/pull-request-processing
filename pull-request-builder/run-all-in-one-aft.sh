@@ -376,7 +376,7 @@ function process_args {
   # --longoptions specifies long options
   args=$(getopt \
     --options h \
-    --longoptions "help,debug,aft_style: \
+    --longoptions "help,debug,aft_style:" \
     --name "$ME" -- "$@")
 
   if [ $? != 0 ]
